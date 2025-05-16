@@ -26,7 +26,7 @@
 #include <stdint.h>
 
 namespace ublox {
-static constexpr size_t BUFFER_SIZE = 1048;
+static constexpr size_t BUFFER_SIZE = 2048;
 
 enum {
 	FIX_TYPE_NO_FIX = 0x00,
@@ -932,7 +932,7 @@ typedef struct
 } __attribute__((packed)) RXM_SFRBX_t;
 
 typedef union {
-	uint8_t buffer[BUFFER_SIZE];
+	uint8_t buffer[ublox::BUFFER_SIZE];
 	ACK_ACK_t ACK_ACK;
 	ACK_NACK_t ACK_NACK;
 	CFG_MSG_t CFG_MSG;
