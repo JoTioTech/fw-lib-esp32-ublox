@@ -1,0 +1,11 @@
+version: "1.0.0"
+description: Libary for managing ublox gps
+url: https://github.com/JoTioTech/fw-lib-esp32-ublox
+dependencies:
+  idf: ">=1.0"
+files:
+  exclude:
+    - "docs/**/*"
+    - "docs"
+    - "test/**/*"
+    - "test"

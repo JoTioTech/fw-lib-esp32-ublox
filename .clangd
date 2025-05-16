@@ -1,0 +1,6 @@
+Diagnostics:
+  Suppress: '*'
+
+CompileFlags:
+  CompilationDatabase: ../fw-os-esp32-active-project/build
+
