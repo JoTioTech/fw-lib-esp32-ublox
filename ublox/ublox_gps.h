@@ -31,6 +31,7 @@
 #include <iostream>
 #include <sdkconfig.h>
 #include <set>
+#include <list>
 #include <stdio.h>
 #include <string>
 #include <vector>
@@ -43,7 +44,7 @@
 #define LENGTH_TO_COPY(x, y) (x + y >= BUFFER_SIZE ? BUFFER_SIZE - x : y)
 
 #include "ublox_definitions.h"
-// #include "serial_interface.h"
+#include "ublox_event_observer.h"
 constexpr static char TAG[] = "OSCore";
 
 namespace ublox {
@@ -55,6 +56,7 @@ class UbloxGPS {
 	private:
 	static void uartEvent(void* pvParameters);
 	static QueueHandle_t uart0_queue;
+	std::list<std::pair<UbloxEventObserver*, uint16_t>> observers;
 
 	uint8_t prev_byte_;
 	uint16_t buffer_head_ = 0;
@@ -152,6 +154,8 @@ class UbloxGPS {
 	// Send the supplied message
 	bool sendMessage(uint8_t msgClass, uint8_t msgID, UBX_message_t& message, uint16_t len);
 
+	void notifyObservers(const uint8_t msgClass, const uint8_t msgID, const UBX_message_t* message);
+
 	public:
 	UbloxGPS();
 
@@ -246,6 +250,26 @@ class UbloxGPS {
 	 * @return true if a message was received, false if timeout occurred
 	 */
 	bool waitForResponse();
+
+	/**
+	 * adds new observer (if not already present) to the list of observers, ownership is not transferred
+	 *
+	 * @param *v - observer to add
+	 * @param msgClass - class of the message to observe
+	 * @param msgID - id of the message to observe
+	 * @return  true if observer was added, false if observer was already present
+	 */
+	bool addObserver(UbloxEventObserver* v, uint8_t msgClass, uint8_t msgID);
+
+	/**
+	 * removes observer from the list of observers, delete is not called on
+	 *
+	 * @param *v - observer to remove
+	 * @param msgClass - class of the message to stop observing
+	 * @param msgID - id of the message to stop observing
+	 * @return  true if observer was removed, false if observer was not present
+	 */
+	bool removeObserver(UbloxEventObserver* v, uint8_t msgClass, uint8_t msgID);
 
 	bool currentlyReceivingMessage()
 	{

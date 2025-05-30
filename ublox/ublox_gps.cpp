@@ -46,6 +46,45 @@ UbloxGPS::UbloxGPS()
 	end_message_ = false;
 }
 
+bool UbloxGPS::addObserver(UbloxEventObserver* v, uint8_t msgClass, uint8_t msgID)
+{
+	std::list<std::pair<UbloxEventObserver*, uint16_t>>::iterator it = observers.begin();
+	uint16_t key = ((uint16_t)msgClass) << 8 | msgID;
+	while (it != observers.end()) {
+		if (it->first == v && it->second == key) {
+			return false;
+		}
+		++it;
+	}
+	observers.push_back(std::pair<UbloxEventObserver*, uint16_t>(v, key));
+	return true;
+}
+
+bool UbloxGPS::removeObserver(UbloxEventObserver* v, uint8_t msgClass, uint8_t msgID)
+{
+	std::list<std::pair<UbloxEventObserver*, uint16_t>>::iterator it = observers.begin();
+	uint16_t key = ((uint16_t)msgClass) << 8 | msgID;
+	while (it != observers.end()) {
+		if (it->first == v && it->second == key) {
+			it = observers.erase(it);
+			return true;
+		}
+		++it;
+	}
+	return false;
+}
+
+void UbloxGPS::notifyObservers(const uint8_t msgClass, const uint8_t msgID, const UBX_message_t* message)
+{
+	std::list<std::pair<UbloxEventObserver*, uint16_t>>::iterator it = observers.begin();
+	uint16_t key = ((uint16_t)msgClass) << 8 | msgID;
+	while (it != observers.end()) {
+		if (it->second == key)
+			it->first->onUbloxEvent(msgClass, msgID, message);
+		++it;
+	}
+}
+
 bool UbloxGPS::requestVersion()
 {
 	got_ver_ = false;
@@ -133,7 +172,7 @@ bool UbloxGPS::setDynamicMode(uint8_t mode)
 	ESP_LOGI(TAG, "Setting dynamic mode");
 	if (major_version_ <= 23) {
 		ESP_LOGI(TAG, "with old protocol");
-		if(mode > CFG_NAV5_t::DYNMODE_AIRBORNE_4G) {
+		if (mode > CFG_NAV5_t::DYNMODE_AIRBORNE_4G) {
 			ESP_LOGE(TAG, "Invalid dynamic mode %d", mode);
 			return false;
 		}
@@ -178,7 +217,7 @@ bool UbloxGPS::setMessageRate(uint8_t msgClass, uint8_t msgID, uint8_t rate)
 	return true;
 }
 
-bool UbloxGPS::setMessageRate(uint32_t cfgDataKey,  uint8_t rate)
+bool UbloxGPS::setMessageRate(uint32_t cfgDataKey, uint8_t rate)
 {
 	if (major_version_ <= 23)
 		return false;
@@ -401,40 +440,11 @@ bool UbloxGPS::decodeMessage()
 		break;
 
 	default:
-		//        ESP_LOGI( TAG, "Unknown (%d-%d)", currMsgClass, currMsgID);
+		ESP_LOGE(TAG, "Unknown (%d-%d)", currMsgClass, currMsgID);
 		break;
 	}
 
-	// call callbacks TODO
-	// for (auto &l : listeners_)
-	//    {
-	//        if (l->subscribed(currMsgClass, currMsgID))
-	//            l->got_ubx(currMsgClass, currMsgID, incomingMessage);
-	//    }
-
-	if (currMsgClass == ublox::CLASS_NAV && currMsgID == ublox::NAV_RELPOSNED) {
-		ublox::NAV_RELPOSNED_t msg = incomingMessage.NAV_RELPOSNED;
-		int RTK_flag;
-		if (msg.flags && 0b000000010) {
-			printf("RTK \n");
-			RTK_flag = 1;
-		} else {
-			printf("No RTK \n");
-			RTK_flag = 0;
-		}
-		if (RTK_flag == 1) {
-			if (msg.flags && 0b000100000)
-				printf(", Moving Base");
-			if (msg.flags && 0b000001000)
-				printf(" , Floating \n");
-			else if (msg.flags && 0b000010000)
-				printf(" , Fixed \n");
-			if (msg.flags && 0b000000100)
-				printf("valid relative position components \n");
-			printf("tow: %ld relNED: %ld, %ld, %ld, Distance: %ld\n", msg.iTow / 1000, msg.relPosN,
-					msg.relPosE, msg.relPosD, msg.relPosLength);
-		}
-	}
+	notifyObservers(currMsgClass, currMsgID, &incomingMessage);
 
 	return true;
 }
@@ -494,7 +504,6 @@ void UbloxGPS::requestConfiguration(uint8_t version, uint8_t layer, uint32_t cfg
 	out_message_.CFG_VALGET.cfgDataKey = cfgDataKey;
 	sendMessage(CLASS_CFG, CFG_VALGET, out_message_, sizeof(CFG_VALGET_t));
 }
-
 
 void UbloxGPS::versionCallback()
 {
