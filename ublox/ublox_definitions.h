@@ -346,13 +346,41 @@ typedef struct
 		VALSET_fixed = 3,
 	};
 
+	// Definitions starts at page 176 of M9 Interface Description document
 	enum {
-		MSGOUT_RELPOSNED = 0x20910090, // Output rate of the UBX-NAV-RELPOSNED message on port USB
-		MSGOUT_PVT = 0x20910009,			 // Output rate of the UBX-NAV-PVT message on port USB
-		MSGOUT_POSECEF = 0x20910027,	 // Output rate of the UBX-NAV-POSECEF message on port USB
-		MSGOUT_VELECEF = 0x20910040,	 // Output rate of the UBX-NAV-VELECEF message on port USB
-		MSGOUT_RAWX = 0x209102a7,			 // Output rate of the UBX-RXM-RAWX message on port USB
-		MSGOUT_SFRBX = 0x20910234,		 // Output rate of the UBX-RXM-SFRBX message on port USB
+		MSGOUT_AOPSTATUS = -1,				 // Not available in the new protocol
+		MSGOUT_ATT = 0x20910020,			 // Output rate of the UBX-NAV-ATT message on port UART1
+		MSGOUT_CLOCK = 0x20910066,		 // Output rate of the UBX-NAV-CLOCK message on port UART1
+		MSGOUT_DGPS = -2,							 // Not available in the new protocol
+		MSGOUT_DOP = 0x20910039,			 // Output rate of the UBX-NAV-DOP message on port UART1
+		MSGOUT_EOE = 0x2091016,				 // Output rate of the UBX-NAV-EOE message on port UART1
+		MSGOUT_GEOFENCE = 0x209100a2,	 // Output rate of the UBX-NAV-GEOFENCE message on port UART1
+		MSGOUT_HPPOSECEF = -3,			   // Periodic/Polled High Precision Position Solution in ECEF
+		MSGOUT_HPPOSLLH = -4,				   // Periodic/Polled High Precision Geodetic Position Solution
+		MSGOUT_ODO = 0x2091007f,       // Output rate of the UBX-NAV-ODO message on port UART1
+		MSGOUT_ORB = 0x20910011,       // Output rate of the UBX-NAV-ORB message on port UART1
+		MSGOUT_POSECEF = 0x20910025,   // Output rate of the UBX-NAV-POSECEF message on port UART1
+		MSGOUT_POSLLH = 0x2091002a,    // Output rate of the UBX-NAV-POSLLH message on port UART1
+		MSGOUT_PVT = 0x20910007,			 // Output rate of the UBX-NAV-PVT message on port UART1
+		MSGOUT_RELPOSNED = 0x20910078, // Output rate of the UBX-NAV-RELPOSNED message on port UART1
+		MSGOUT_RESETODO = -5,          // Not available in the new protocol
+		MSGOUT_SAT = 0x20910016,       // Output rate of the UBX-NAV-SAT message on port UART1
+		MSGOUT_SBAS = 0x2091006b,      // Output rate of the UBX-NAV-SBAS message on port UART1
+		MSGOUT_SOL = -6,               // Not available in the new protocol
+		MSGOUT_STATUS = 0x2091001b,    // Output rate of the UBX-NAV-STATUS message on port UART1
+		MSGOUT_SVINFO = -7,            // Not available in the new protocol
+		MSGOUT_SVIN = 0x20910089,      // Output rate of the UBX-NAV-SVIN message on port UART1
+		MSGOUT_TIMEBDS = 0x20910052,   // Output rate of the UBX-NAV-TIMEBDS message on port UART1
+		MSGOUT_TIMEGAL = 0x20910057,   // Output rate of the UBX-NAV-TIMEGAL message on port UART1
+		MSGOUT_TIMEGLO = 0x2091004d,   // Output rate of the UBX-NAV-TIMEGLO message on port UART1
+		MSGOUT_TIMEGPS = 0x20910048,   // Output rate of the UBX-NAV-TIMEGPS message on port UART1
+		MSGOUT_TIMELS = 0x20910061,    // Output rate of the UBX-NAV-TIMELS message on port UART1
+		MSGOUT_TIMEUTC = 0x2091005c,   // Output rate of the UBX-NAV-TIMEUTC message on port UART1
+		MSGOUT_VELECEF = 0x2091003e,   // Output rate of the UBX-NAV-VELECEF message on port UART1
+		MSGOUT_VELNED = 0x20910043,    // Output rate of the UBX-NAV-VELNED message on port UART1
+		MSGOUT_SIG = 0x20910346,			 // Output rate of the UBX-NAV-SIG message on port UART1
+		MSGOUT_RAWX = 0x209102a5,			 // Output rate of the UBX-RXM-RAWX message on port UART1
+		MSGOUT_SFRBX = 0x20910232,		 // Output rate of the UBX-RXM-SFRBX message on port UART1
 	};
 
 	enum {												 // outgoing message rates for RTCM 3x on usb type U1
@@ -395,10 +423,11 @@ typedef struct
 		DYNMODE_AIRBORNE_4G = 8,
 		DYNMODE_WRIST_WORN = 9,
 		DYNMODE_BIKE = 10,
+		DYNMODE_MOWER = 11,
+		DYNMODE_ESCOOTER = 12,
 	};
 
 	enum {
-		MSGOUT_SVIN = 0x2091008b,
 		TMODE_MODE = 0x20030001,
 		TMODE_SVIN_MIN_DUR = 0x40030010,	 // survey in minimum duration s
 		TMODE_SVIN_ACC_LIMIT = 0x40030011, // Survey-in position accuracy limit mm
@@ -461,12 +490,39 @@ typedef struct
 	};
 
 	enum {
-		MSGOUT_RELPOSNED = 0x20910090, // Output rate of the UBX-NAV-RELPOSNED message on port USB
-		MSGOUT_PVT = 0x20910009,			 // Output rate of the UBX-NAV-PVT message on port USB
-		MSGOUT_POSECEF = 0x20910027,	 // Output rate of the UBX-NAV-POSECEF message on port USB
-		MSGOUT_VELECEF = 0x20910040,	 // Output rate of the UBX-NAV-VELECEF message on port USB
-		MSGOUT_RAWX = 0x209102a7,			 // Output rate of the UBX-RXM-RAWX message on port USB
-		MSGOUT_SFRBX = 0x20910234,		 // Output rate of the UBX-RXM-SFRBX message on port USB
+		MSGOUT_AOPSTATUS = -1,				 // Not available in the new protocol
+		MSGOUT_ATT = 0x20910020,			 // Output rate of the UBX-NAV-ATT message on port UART1
+		MSGOUT_CLOCK = 0x20910066,		 // Output rate of the UBX-NAV-CLOCK message on port UART1
+		MSGOUT_DGPS = -2,							 // Not available in the new protocol
+		MSGOUT_DOP = 0x20910039,			 // Output rate of the UBX-NAV-DOP message on port UART1
+		MSGOUT_EOE = 0x2091016,				 // Output rate of the UBX-NAV-EOE message on port UART1
+		MSGOUT_GEOFENCE = 0x209100a2,	 // Output rate of the UBX-NAV-GEOFENCE message on port UART1
+		MSGOUT_HPPOSECEF = -3,			   // Periodic/Polled High Precision Position Solution in ECEF
+		MSGOUT_HPPOSLLH = -4,				   // Periodic/Polled High Precision Geodetic Position Solution
+		MSGOUT_ODO = 0x2091007f,       // Output rate of the UBX-NAV-ODO message on port UART1
+		MSGOUT_ORB = 0x20910011,       // Output rate of the UBX-NAV-ORB message on port UART1
+		MSGOUT_POSECEF = 0x20910025,   // Output rate of the UBX-NAV-POSECEF message on port UART1
+		MSGOUT_POSLLH = 0x2091002a,    // Output rate of the UBX-NAV-POSLLH message on port UART1
+		MSGOUT_PVT = 0x20910007,			 // Output rate of the UBX-NAV-PVT message on port UART1
+		MSGOUT_RELPOSNED = 0x20910078, // Output rate of the UBX-NAV-RELPOSNED message on port UART1
+		MSGOUT_RESETODO = -5,          // Not available in the new protocol
+		MSGOUT_SAT = 0x20910016,       // Output rate of the UBX-NAV-SAT message on port UART1
+		MSGOUT_SBAS = 0x2091006b,      // Output rate of the UBX-NAV-SBAS message on port UART1
+		MSGOUT_SOL = -6,               // Not available in the new protocol
+		MSGOUT_STATUS = 0x2091001b,    // Output rate of the UBX-NAV-STATUS message on port UART1
+		MSGOUT_SVINFO = -7,            // Not available in the new protocol
+		MSGOUT_SVIN = 0x20910089,      // Output rate of the UBX-NAV-SVIN message on port UART1
+		MSGOUT_TIMEBDS = 0x20910052,   // Output rate of the UBX-NAV-TIMEBDS message on port UART1
+		MSGOUT_TIMEGAL = 0x20910057,   // Output rate of the UBX-NAV-TIMEGAL message on port UART1
+		MSGOUT_TIMEGLO = 0x2091004d,   // Output rate of the UBX-NAV-TIMEGLO message on port UART1
+		MSGOUT_TIMEGPS = 0x20910048,   // Output rate of the UBX-NAV-TIMEGPS message on port UART1
+		MSGOUT_TIMELS = 0x20910061,    // Output rate of the UBX-NAV-TIMELS message on port UART1
+		MSGOUT_TIMEUTC = 0x2091005c,   // Output rate of the UBX-NAV-TIMEUTC message on port UART1
+		MSGOUT_VELECEF = 0x2091003e,   // Output rate of the UBX-NAV-VELECEF message on port UART1
+		MSGOUT_VELNED = 0x20910043,    // Output rate of the UBX-NAV-VELNED message on port UART1
+		MSGOUT_SIG = 0x20910346,			 // Output rate of the UBX-NAV-SIG message on port UART1
+		MSGOUT_RAWX = 0x209102a5,			 // Output rate of the UBX-RXM-RAWX message on port UART1
+		MSGOUT_SFRBX = 0x20910232,		 // Output rate of the UBX-RXM-SFRBX message on port UART1
 	};
 
 	enum {												 // outgoing message rates for RTCM 3x on usb type U1
@@ -509,10 +565,11 @@ typedef struct
 		DYNMODE_AIRBORNE_4G = 8,
 		DYNMODE_WRIST_WORN = 9,
 		DYNMODE_BIKE = 10,
+		DYNMODE_MOWER = 11,
+		DYNMODE_ESCOOTER = 12,
 	};
 
 	enum {
-		MSGOUT_SVIN = 0x2091008b,
 		TMODE_MODE = 0x20030001,
 		TMODE_SVIN_MIN_DUR = 0x40030010,	 // survey in minimum duration s
 		TMODE_SVIN_ACC_LIMIT = 0x40030011, // Survey-in position accuracy limit mm
@@ -555,7 +612,7 @@ typedef struct
 
 	union {
 		uint8_t bytes[4];
-		uint16_t half_word[2];
+		uint16_t half_word[2]; // DELETE????
 		uint32_t word;
 	} cfgData;
 
