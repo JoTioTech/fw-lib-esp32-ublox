@@ -1,0 +1,31 @@
+menu "u-blox component configuration"
+
+config GPS_DEBUG
+bool "Enable debug output"
+default false
+help
+	Enable debug for u-blox GPS
+
+config GPS_UART_NUM
+int "UART interface number"
+range 0 2
+default 2
+help
+	UART interface number
+
+config GPS_TX_PIN
+int "TX pin to connect to the GPS"
+range -1 30
+default -1
+help
+	TX pin to connect to the GPS, -1 for NO_PIN_CHANGE
+
+config GPS_RX_PIN
+int "RX pin to connect to the GPS"
+range -1 30
+default -1
+help
+	RX pin to connect to the GPS, -1 for NO_PIN_CHANGE
+
+
+endmenu

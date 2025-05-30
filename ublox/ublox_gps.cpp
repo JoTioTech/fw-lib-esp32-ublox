@@ -328,7 +328,7 @@ bool UbloxGPS::decodeMessage()
 {
 
 	// NOTE: there's some RTOS fuckery that results in a crash if I call checksum function from here. No idea why since things like version callback work just fine.
-	// uint16_t checksum = calculateChecksum(currMsgClass, currMsgID, currMsgLength, incomingMessage); // NOTE crashes here
+	// uint16_t checksum = calculateChecksum(currMsgClass, currMsgID, currMsgLength, incomingMessage);
 	// uint8_t checksumA = checksum >> 8;
 	// uint8_t checksumB = checksum & 0xFF;
 
