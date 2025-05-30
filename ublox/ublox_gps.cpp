@@ -46,20 +46,10 @@ UbloxGPS::UbloxGPS()
 	end_message_ = false;
 }
 
-bool UbloxGPS::parsing_message()
-{
-	return (start_message_ == true && end_message_ == false);
-}
-
-size_t UbloxGPS::num_messages_received()
-{
-	return num_messages_received_;
-}
-
 bool UbloxGPS::requestVersion()
 {
 	got_ver_ = false;
-	send_message(CLASS_MON, MON_VER, out_message_, 0);
+	sendMessage(CLASS_MON, MON_VER, out_message_, 0);
 	auto start = (esp_timer_get_time() >> 10);
 	int dt_ms = 0;
 	while (!got_ver_ && dt_ms < TIMEOUT_MS) {
@@ -76,7 +66,7 @@ bool UbloxGPS::requestVersion()
 	}
 }
 
-bool UbloxGPS::wait_for_response()
+bool UbloxGPS::waitForResponse()
 {
 	got_ack_ = got_nack_ = false;
 	auto start = (esp_timer_get_time() >> 10);
@@ -95,10 +85,10 @@ bool UbloxGPS::wait_for_response()
 	return false;
 }
 
-bool UbloxGPS::send_message(uint8_t msg_class, uint8_t msg_id, UBX_message_t& message, uint16_t len)
+bool UbloxGPS::sendMessage(uint8_t msgClass, uint8_t msgID, UBX_message_t& message, uint16_t len)
 {
 	// First, calculate the checksum
-	uint16_t checksum = calculateChecksum(msg_class, msg_id, len, message);
+	uint16_t checksum = calculateChecksum(msgClass, msgID, len, message);
 
 	uint8_t checksumA = checksum >> 8;
 	uint8_t checksumB = checksum & 0xFF;
@@ -108,21 +98,13 @@ bool UbloxGPS::send_message(uint8_t msg_class, uint8_t msg_id, UBX_message_t& me
 	uart_write_bytes(EX_UART_NUM, &byte, 1);
 	byte = START_BYTE_2;
 	uart_write_bytes(EX_UART_NUM, &byte, 1);
-	uart_write_bytes(EX_UART_NUM, &msg_class, 1);
-	uart_write_bytes(EX_UART_NUM, &msg_id, 1);
-	uart_write_bytes(EX_UART_NUM, (uint16_t*)&len, 2); // send length as two bytes
+	uart_write_bytes(EX_UART_NUM, &msgClass, 1);
+	uart_write_bytes(EX_UART_NUM, &msgID, 1);
+	uart_write_bytes(EX_UART_NUM, &len, 2); // send length as two bytes
 	uart_write_bytes(EX_UART_NUM, message.buffer, len);
 	uart_write_bytes(EX_UART_NUM, &checksumA, 1);
 	uart_write_bytes(EX_UART_NUM, &checksumB, 1);
 	return true;
-}
-
-void UbloxGPS::start_survey_in()
-{
-	out_message_.CFG_TMODE3.flags = CFG_TMODE3_t::SURVEY_IN;
-	out_message_.CFG_TMODE3.svinMinDur = 60;	// Wait at least 1 minute
-	out_message_.CFG_TMODE3.svinAccLimit = 3; // At least within 3 centimeters
-	send_message(CLASS_CFG, CFG_TMODE3, out_message_, sizeof(CFG_TMODE3_t));
 }
 
 void UbloxGPS::disableNMEA()
@@ -137,7 +119,7 @@ void UbloxGPS::disableNMEA()
 		out_message_.CFG_PRT.outProtoMask = CF::OUT_UBX | CF::OUT_RTCM3;
 		out_message_.CFG_PRT.inProtoMask = CF::OUT_UBX | CF::OUT_RTCM3;
 		out_message_.CFG_PRT.flags = CF::CHARLEN_8BIT | CF::PARITY_NONE | CF::STOP_BITS_1;
-		send_message(CLASS_CFG, CFG_PRT, out_message_, sizeof(CF));
+		sendMessage(CLASS_CFG, CFG_PRT, out_message_, sizeof(CF));
 	} else {
 		ESP_LOGI(TAG, "with new protocol");
 		using CV = CFG_VALSET_t;
@@ -158,7 +140,7 @@ bool UbloxGPS::setDynamicMode(uint8_t mode)
 		memset(&out_message_, 0, sizeof(CFG_NAV5_t));
 		out_message_.CFG_NAV5.mask = CFG_NAV5_t::MASK_DYN;
 		out_message_.CFG_NAV5.dynModel = mode;
-		send_message(CLASS_CFG, CFG_NAV5, out_message_, sizeof(CFG_NAV5_t));
+		sendMessage(CLASS_CFG, CFG_NAV5, out_message_, sizeof(CFG_NAV5_t));
 	} else {
 		ESP_LOGI(TAG, "with new protocol");
 		using CV = CFG_VALSET_t;
@@ -167,42 +149,41 @@ bool UbloxGPS::setDynamicMode(uint8_t mode)
 	return true;
 }
 
-void UbloxGPS::setNavRate(uint16_t period_ms)
+void UbloxGPS::setNavRate(uint16_t period)
 {
-	ESP_LOGI(TAG, "Setting nav rate to %d", period_ms);
+	ESP_LOGI(TAG, "Setting nav rate to %d", period);
 	if (major_version_ <= 23) {
 		ESP_LOGI(TAG, "Using old protocol");
 		memset(&out_message_, 0, sizeof(CFG_RATE_t));
-		out_message_.CFG_RATE.measRate = period_ms;
+		out_message_.CFG_RATE.measRate = period;
 		out_message_.CFG_RATE.navRate = 1;
 		out_message_.CFG_RATE.timeRef = CFG_RATE_t::TIME_REF_UTC;
-		send_message(CLASS_CFG, CFG_RATE, out_message_, sizeof(CFG_RATE_t));
+		sendMessage(CLASS_CFG, CFG_RATE, out_message_, sizeof(CFG_RATE_t));
 	} else {
 		ESP_LOGI(TAG, "Using new protocol");
 		using CV = CFG_VALSET_t;
-		configure(CV::VERSION_0, CV::RAM, period_ms, CV::RATE_MEAS, 2);
+		configure(CV::VERSION_0, CV::RAM, period, CV::RATE_MEAS, 2);
 		configure(CV::VERSION_0, CV::RAM, 1, CV::RATE_NAV, 1);
 		configure(CV::VERSION_0, CV::RAM, CV::TIME_REF_UTC, CV::RATE_TIMEREF, 1);
 	}
 }
 
-bool UbloxGPS::setMessageRate(uint8_t msg_cls, uint8_t msg_id, uint8_t rate)
+bool UbloxGPS::setMessageRate(uint8_t msgClass, uint8_t msgID, uint8_t rate)
 {
 	memset(&out_message_, 0, sizeof(CFG_MSG_t));
-	out_message_.CFG_MSG.msgClass = msg_cls;
-	out_message_.CFG_MSG.msgID = msg_id;
+	out_message_.CFG_MSG.msgClass = msgClass;
+	out_message_.CFG_MSG.msgID = msgID;
 	out_message_.CFG_MSG.rate = rate;
-	send_message(CLASS_CFG, CFG_MSG, out_message_, sizeof(CFG_MSG_t));
+	sendMessage(CLASS_CFG, CFG_MSG, out_message_, sizeof(CFG_MSG_t));
 	return true;
 }
 
-bool UbloxGPS::setMessageRate(uint32_t key_id,  uint8_t rate)
+bool UbloxGPS::setMessageRate(uint32_t cfgDataKey,  uint8_t rate)
 {
 	if (major_version_ <= 23)
 		return false;
-	ESP_LOGI(TAG, "Using new protocol");
 	using CV = CFG_VALSET_t;
-	configure(CV::VERSION_0, CV::RAM, rate, key_id, 1);
+	configure(CV::VERSION_0, CV::RAM, rate, cfgDataKey, 1);
 	return true;
 }
 
@@ -458,17 +439,17 @@ bool UbloxGPS::decodeMessage()
 	return true;
 }
 
-uint16_t UbloxGPS::calculateChecksum(const uint8_t msg_cls, const uint8_t msg_id, const uint16_t len, const UBX_message_t payload)
+uint16_t UbloxGPS::calculateChecksum(const uint8_t msgClass, const uint8_t msgID, const uint16_t len, const UBX_message_t payload)
 {
 	uint8_t checksumA = 0;
 	uint8_t checksumB = 0;
 
 	// Add in class
-	checksumA += msg_cls;
+	checksumA += msgClass;
 	checksumB += checksumA;
 
 	// Id
-	checksumA += msg_id;
+	checksumA += msgID;
 	checksumB += checksumA;
 
 	// Length
@@ -502,26 +483,18 @@ void UbloxGPS::configure(uint8_t version,
 		ESP_LOGI(TAG, "configure | cfgDataKey: %ld, cfgData: %ld", cfgDataKey, out_message_.CFG_VALSET.cfgData.word);
 	}
 	out_message_.CFG_VALSET.cfgDataKey = cfgDataKey;
-	send_message(CLASS_CFG, CFG_VALSET, out_message_, sizeof(CFG_VALSET_t));
+	sendMessage(CLASS_CFG, CFG_VALSET, out_message_, sizeof(CFG_VALSET_t));
 }
 
-void UbloxGPS::get_configuration(uint8_t version, uint8_t layer, uint32_t cfgDataKey)
+void UbloxGPS::requestConfiguration(uint8_t version, uint8_t layer, uint32_t cfgDataKey)
 {
 	memset(&out_message_, 0, sizeof(CFG_VALGET_t));
 	out_message_.CFG_VALGET.version = version;
 	out_message_.CFG_VALGET.layer = layer;
 	out_message_.CFG_VALGET.cfgDataKey = cfgDataKey;
-	send_message(CLASS_CFG, CFG_VALGET, out_message_, sizeof(CFG_VALGET_t));
+	sendMessage(CLASS_CFG, CFG_VALGET, out_message_, sizeof(CFG_VALGET_t));
 }
 
-// void UbloxGPS::write(const uint8_t byte)
-// {
-// 	uart_write_bytes(EX_UART_NUM, &byte, 1);
-// }
-// void UbloxGPS::write(const uint8_t* byte, const size_t size)
-// {
-// 	uart_write_bytes(EX_UART_NUM, byte, size);
-// }
 
 void UbloxGPS::versionCallback()
 {
@@ -530,10 +503,10 @@ void UbloxGPS::versionCallback()
 	int firmware_version;
 	for (int i = 0; i < 20; ++i) {
 		if (strncmp(incomingMessage.MON_VER.extension[i], "PROTVER=", 8) == 0) {
-			extract_version_string(incomingMessage.MON_VER.extension[i]);
+			extractVersionString(incomingMessage.MON_VER.extension[i]);
 		}
 		if (strncmp(incomingMessage.MON_VER.extension[i], "MOD=", 4) == 0) {
-			extract_module_name(incomingMessage.MON_VER.extension[i]);
+			extractModuleName(incomingMessage.MON_VER.extension[i]);
 		}
 	}
 
@@ -542,7 +515,7 @@ void UbloxGPS::versionCallback()
 	got_ver_ = true;
 }
 
-void UbloxGPS::extract_version_string(const char* str)
+void UbloxGPS::extractVersionString(const char* str)
 {
 	// Get major version
 	char tmp[5];
@@ -571,7 +544,7 @@ void UbloxGPS::extract_version_string(const char* str)
 	minor_version_ = atoi(tmp);
 }
 
-void UbloxGPS::extract_module_name(const char* str)
+void UbloxGPS::extractModuleName(const char* str)
 {
 	const char* s = str + 4;
 	for (int i = 0; i < sizeof(module_name_); i++) {
