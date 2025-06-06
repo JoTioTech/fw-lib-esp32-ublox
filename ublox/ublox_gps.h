@@ -51,7 +51,7 @@ constexpr static char TAG[] = "OSCore";
 namespace ublox {
 
 class UbloxGPS {
-	static constexpr int TIMEOUT_MS = 1000;
+	static constexpr int TIMEOUT_MS = 2000;
 	constexpr static char TAG[] = "UbloxGPS";
 
 	private:
@@ -218,7 +218,25 @@ class UbloxGPS {
 	bool setMessageRate(uint8_t msgClass, uint8_t msgID, uint8_t rate);
 
 
-	bool enableIMU();
+	/**
+	 * @brief toggle onboard IMU  on and off
+	 * uses new protocol (version > 23)
+	 *
+	 * @param toggle true to enable IMU
+	 * @return true if device supports new protocols and message was sent
+	 */
+	bool toggleIMU(bool toggle);
+
+
+	/**
+	 * @brief toggle GNSS system on and off
+	 * uses new protocol (version > 23)
+	 *
+	 * @param system the system to toggle (e.g. SIGNAL_GPS, SIGNAL_GAL, SIGNAL_BDS)
+	 * @param toggle true to enable the system
+	 * @return true if device supports new protocol and message was sent
+	 */
+	bool toggleGNSS(uint32_t system, bool toggle);
 
 	/**
 	 * @brief enable a message with the given class and id
@@ -227,7 +245,7 @@ class UbloxGPS {
 	 * @param msgClass message class
 	 * @param msgID message id
 	 * @param rate number of periods (configured with setNavRate) between messages
-	 * @return true if device supports new protocol
+	 * @return true if device supports new protocol  and message was sent
 	 */
 	bool setMessageRate(uint32_t cfgDataKey, uint8_t rate);
 

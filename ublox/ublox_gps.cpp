@@ -188,6 +188,7 @@ bool UbloxGPS::setDynamicMode(uint8_t mode)
 	return true;
 }
 
+
 void UbloxGPS::setNavRate(uint16_t period)
 {
 	ESP_LOGI(TAG, "Setting nav rate to %d", period);
@@ -218,7 +219,16 @@ bool UbloxGPS::setMessageRate(uint8_t msgClass, uint8_t msgID, uint8_t rate)
 	return true;
 }
 
-bool UbloxGPS::enableIMU(){
+bool UbloxGPS::toggleGNSS(uint32_t system, bool toggle){
+	if (major_version_ <= 23)
+		return false;
+
+	using CV = CFG_VALSET_t;
+	configure(CV::VERSION_0, CV::RAM, toggle, system, 1);
+	return true;
+}
+
+bool UbloxGPS::toggleIMU(bool toggle){
 	if (major_version_ <= 23)
 		return false;
 	// Enable IMU messages
@@ -378,8 +388,10 @@ bool UbloxGPS::decodeMessage()
 	uint64_t cfgData;
 	num_messages_received_++;
 
-	if(currMsgClass == CLASS_MON && currMsgID == MON_VER)
+	if(currMsgClass == CLASS_MON && currMsgID == MON_VER){
+		ESP_LOGI(TAG, "decodeMessage | class:MON | type:VER");
 		versionCallback();
+	}
 
 
 #ifdef CONFIG_GPS_DEBUG
