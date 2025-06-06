@@ -40,6 +40,7 @@
 #define HOLDING_REG_SIZE 128
 #define SERIAL_BUFFER_SIZE 256
 #define EX_UART_NUM (uart_port_t) CONFIG_GPS_UART_NUM
+// #define EX_UART_NUM (uart_port_t) LP_UART_NUM_0
 
 #define LENGTH_TO_COPY(x, y) (x + y >= BUFFER_SIZE ? BUFFER_SIZE - x : y)
 

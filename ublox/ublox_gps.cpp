@@ -603,7 +603,8 @@ void UbloxGPS::uartEvent(void* pvParameters)
 
 void UbloxGPS::setupSerial()
 {
-	ESP_LOGI(TAG, "setupSerial | Setting up serial");
+	ESP_LOGI(TAG, "setupSerial | Setting up serial, using UART %d", EX_UART_NUM);
+
 	uart_config_t uart_config = {
 		.baud_rate = 38400,
 		.data_bits = UART_DATA_8_BITS,
@@ -613,10 +614,25 @@ void UbloxGPS::setupSerial()
 		.source_clk = UART_SCLK_DEFAULT,
 	};
 
+#if CONFIG_IDF_TARGET_ESP32C6
+	if(EX_UART_NUM == LP_UART_NUM_0) {
+		ESP_LOGI(TAG, "setupSerial | Using LP UART %d", EX_UART_NUM);
+		uart_config.rx_flow_ctrl_thresh = 0;
+		uart_config.source_clk = (uart_sclk_t) LP_UART_SCLK_LP_FAST; //
+	}
+#endif /* if CONFIG_IDF_TARGET_ESP32C6 */
+
 	// Install UART driver, and get the queue.
 	uart_driver_install(EX_UART_NUM, BUFFER_SIZE << 1, BUFFER_SIZE << 1, 20, &uart0_queue, 0);
+	// ESP_LOGI(TAG, "setupSerial | UART driver installed");
+	// vTaskDelay(100 / portTICK_PERIOD_MS);
 	uart_param_config(EX_UART_NUM, &uart_config);
+	// ESP_LOGI(TAG, "setupSerial | UART parameters configured");
+	// vTaskDelay(100 / portTICK_PERIOD_MS);
+	// uart_set_pin(EX_UART_NUM, CONFIG_GPS_TX_PIN, CONFIG_GPS_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
 	uart_set_pin(EX_UART_NUM, CONFIG_GPS_TX_PIN, CONFIG_GPS_RX_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+	// ESP_LOGI(TAG, "setupSerial | UART pins set");
+	// vTaskDelay(100 / portTICK_PERIOD_MS);
 
 	// Create a task to handler UART event from ISR
 	xTaskCreate(uartEvent, "uartEvent", 2048, this, 12, NULL);
