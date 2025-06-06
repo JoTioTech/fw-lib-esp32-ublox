@@ -14,7 +14,7 @@
 
 class UbloxEventObserver {
 	public:
-		virtual void onUbloxEvent(const uint8_t msgClass, const uint8_t msgID, const ublox::UBX_message_t* message) = 0;
+		virtual void onUbloxEvent(const uint8_t msgClass, const uint8_t msgID, const ublox::UBX_message_t* message, const uint16_t msgLen) = 0;
 
 		UbloxEventObserver () = default;
 		virtual ~UbloxEventObserver () = default;

@@ -74,13 +74,13 @@ bool UbloxGPS::removeObserver(UbloxEventObserver* v, uint8_t msgClass, uint8_t m
 	return false;
 }
 
-void UbloxGPS::notifyObservers(const uint8_t msgClass, const uint8_t msgID, const UBX_message_t* message)
+void UbloxGPS::notifyObservers(const uint8_t msgClass, const uint8_t msgID, const UBX_message_t* message, const uint16_t msgLen)
 {
 	std::list<std::pair<UbloxEventObserver*, uint16_t>>::iterator it = observers.begin();
 	uint16_t key = ((uint16_t)msgClass) << 8 | msgID;
 	while (it != observers.end()) {
 		if (it->second == key)
-			it->first->onUbloxEvent(msgClass, msgID, message);
+			it->first->onUbloxEvent(msgClass, msgID, message, msgLen);
 		++it;
 	}
 }
@@ -191,7 +191,8 @@ bool UbloxGPS::setDynamicMode(uint8_t mode)
 void UbloxGPS::setNavRate(uint16_t period)
 {
 	ESP_LOGI(TAG, "Setting nav rate to %d", period);
-	if (major_version_ <= 23) {
+	if (true) {
+	// if (major_version_ <= 23) {
 		ESP_LOGI(TAG, "Using old protocol");
 		memset(&out_message_, 0, sizeof(CFG_RATE_t));
 		out_message_.CFG_RATE.measRate = period;
@@ -217,6 +218,16 @@ bool UbloxGPS::setMessageRate(uint8_t msgClass, uint8_t msgID, uint8_t rate)
 	return true;
 }
 
+bool UbloxGPS::enableIMU(){
+	if (major_version_ <= 23)
+		return false;
+	// Enable IMU messages
+	using CV = CFG_VALSET_t;
+	ESP_LOGI(TAG, "Enabling IMU messages");
+	configure(CV::VERSION_0, CV::RAM, 1, 0x1006001d, 1);
+	return true;
+}
+
 bool UbloxGPS::setMessageRate(uint32_t cfgDataKey, uint8_t rate)
 {
 	if (major_version_ <= 23)
@@ -231,7 +242,6 @@ bool UbloxGPS::processNewByte(uint8_t byte)
 	// ESP_LOGI(TAG, "processNewByte: %02x\n", byte);
 	switch (parse_state_) {
 	case START:
-		// printf("%02X%02X,", prev_byte_, byte);
 		if (byte == START_BYTE_2 && prev_byte_ == START_BYTE_1) {
 			buffer_head_ = 0;
 			parse_state_ = GOT_START_FRAME;
@@ -298,19 +308,19 @@ bool UbloxGPS::processNewByte(uint8_t byte)
 	// If we have a complete packet, then try to parse it
 	if (parse_state_ == GOT_CK_B) {
 		if (decodeMessage()) {
-			ESP_LOGI(TAG, "Finished message, restating parser");
 			parse_state_ = START;
 			end_message_ = true;
 			start_message_ = false;
 			prev_byte_ = byte;
+			ESP_LOGI(TAG, "Finished message, restarted parser");
 			return true;
 		} else {
-			ESP_LOGI(TAG, "Failed to decode message");
 			// indicate error if it didn't work
 			num_errors_++;
 			parse_state_ = START;
 			start_message_ = false;
 			end_message_ = false;
+			ESP_LOGI(TAG, "Failed to decode message");
 		}
 	}
 	prev_byte_ = byte;
@@ -358,7 +368,7 @@ bool UbloxGPS::decodeMessage()
 	if (checksumA != checksumReferenceA || checksumB != checksumReferenceB)
 		return false;
 
-	ESP_LOGI(TAG, "decodeMessage | processing message with length=%d", currMsgLength);
+	// ESP_LOGI(TAG, "decodeMessage | processing message with length=%d", currMsgLength);
 
 	uint8_t version; // 0 poll request, 1 poll (receiver to return config data key
 									 // and value pairs)
@@ -368,7 +378,12 @@ bool UbloxGPS::decodeMessage()
 	uint64_t cfgData;
 	num_messages_received_++;
 
-	// Parse the payload
+	if(currMsgClass == CLASS_MON && currMsgID == MON_VER)
+		versionCallback();
+
+
+#ifdef CONFIG_GPS_DEBUG
+	Parse the payload
 	switch (currMsgClass) {
 	case CLASS_ACK:
 		switch (currMsgID) {
@@ -389,7 +404,6 @@ bool UbloxGPS::decodeMessage()
 		switch (currMsgID) {
 		case MON_VER:
 			ESP_LOGI(TAG, "decodeMessage | class:MON | type:VER");
-			versionCallback();
 			break;
 		case MON_COMMS:
 			ESP_LOGI(TAG, "decodeMessage | class:MON | type:COMMS");
@@ -439,12 +453,38 @@ bool UbloxGPS::decodeMessage()
 		}
 		break;
 
+	case CLASS_ESF:
+		switch (currMsgID) {
+		case ESF_ALG:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:ALG");
+			break;
+		case ESF_CAL:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:CAL");
+			break;
+		case ESF_INS:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:INS");
+			break;
+		case ESF_STATUS:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:STATUS");
+			break;
+		case ESF_RAW:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:RAW");
+			break;
+		case ESF_MEAS:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:MEAS");
+			break;
+		default:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:%d", currMsgID);
+			break;
+		}
+		break;
 	default:
-		ESP_LOGE(TAG, "Unknown (%d-%d)", currMsgClass, currMsgID);
+		ESP_LOGE(TAG, "Unknown (%02X-%02X)", currMsgClass, currMsgID);
 		break;
 	}
+#endif /* CONFIG_GPS_DEBUG */
 
-	notifyObservers(currMsgClass, currMsgID, &incomingMessage);
+	notifyObservers(currMsgClass, currMsgID, &incomingMessage, currMsgLength);
 
 	return true;
 }
@@ -487,6 +527,7 @@ void UbloxGPS::configure(uint8_t version,
 	out_message_.CFG_VALSET.layer = layer;
 	if (size == 1) {
 		out_message_.CFG_VALSET.cfgData.bytes[0] = cfgData;
+		ESP_LOGI(TAG, "configure | cfgDataKey: %ld, cfgData: %d", cfgDataKey, out_message_.CFG_VALSET.cfgData.bytes[0]);
 	}
 	if (size == 2) {
 		out_message_.CFG_VALSET.cfgData.word = cfgData;
@@ -590,9 +631,8 @@ void UbloxGPS::uartEvent(void* pvParameters)
 			memset(dtmp, 0, SERIAL_BUFFER_SIZE);
 			if (event.type == UART_DATA) {
 				uart_read_bytes(EX_UART_NUM, dtmp, event.size, portMAX_DELAY);
-				for (j = 0; j < event.size; j++) {
+				for (j = 0; j < event.size; j++)
 					gps->processNewByte(dtmp[j]);
-				}
 			}
 		}
 	}

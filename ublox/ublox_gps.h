@@ -155,7 +155,7 @@ class UbloxGPS {
 	// Send the supplied message
 	bool sendMessage(uint8_t msgClass, uint8_t msgID, UBX_message_t& message, uint16_t len);
 
-	void notifyObservers(const uint8_t msgClass, const uint8_t msgID, const UBX_message_t* message);
+	void notifyObservers(const uint8_t msgClass, const uint8_t msgID, const UBX_message_t* message, const uint16_t msgLen);
 
 	public:
 	UbloxGPS();
@@ -216,6 +216,9 @@ class UbloxGPS {
 	 * @return true
 	 */
 	bool setMessageRate(uint8_t msgClass, uint8_t msgID, uint8_t rate);
+
+
+	bool enableIMU();
 
 	/**
 	 * @brief enable a message with the given class and id

@@ -11,4 +11,4 @@ Basic parser structure has been forked from [UBLOX_read](https://github.com/supe
 * [ ] functions that extract basic information easily
 * [ ] dead reckoning
 * [ ] geofencing
-* [ ] gyro access
+* [X] gyro access
