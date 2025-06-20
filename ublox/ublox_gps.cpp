@@ -188,12 +188,11 @@ bool UbloxGPS::setDynamicMode(uint8_t mode)
 	return true;
 }
 
-
 void UbloxGPS::setNavRate(uint16_t period)
 {
 	ESP_LOGI(TAG, "Setting nav rate to %d", period);
-	if (true) {
-	// if (major_version_ <= 23) {
+	// if (true) {
+	if (major_version_ <= 23) {
 		ESP_LOGI(TAG, "Using old protocol");
 		memset(&out_message_, 0, sizeof(CFG_RATE_t));
 		out_message_.CFG_RATE.measRate = period;
@@ -219,7 +218,8 @@ bool UbloxGPS::setMessageRate(uint8_t msgClass, uint8_t msgID, uint8_t rate)
 	return true;
 }
 
-bool UbloxGPS::toggleGNSS(uint32_t system, bool toggle){
+bool UbloxGPS::toggleGNSS(uint32_t system, bool toggle)
+{
 	if (major_version_ <= 23)
 		return false;
 
@@ -228,7 +228,8 @@ bool UbloxGPS::toggleGNSS(uint32_t system, bool toggle){
 	return true;
 }
 
-bool UbloxGPS::toggleIMU(bool toggle){
+bool UbloxGPS::toggleIMU(bool toggle)
+{
 	if (major_version_ <= 23)
 		return false;
 	// Enable IMU messages
@@ -322,7 +323,7 @@ bool UbloxGPS::processNewByte(uint8_t byte)
 			end_message_ = true;
 			start_message_ = false;
 			prev_byte_ = byte;
-			ESP_LOGI(TAG, "Finished message, restarted parser");
+			// ESP_LOGI(TAG, "Finished message, restarted parser");
 			return true;
 		} else {
 			// indicate error if it didn't work
@@ -388,111 +389,110 @@ bool UbloxGPS::decodeMessage()
 	uint64_t cfgData;
 	num_messages_received_++;
 
-	if(currMsgClass == CLASS_MON && currMsgID == MON_VER){
+	if (currMsgClass == CLASS_MON && currMsgID == MON_VER) {
 		ESP_LOGI(TAG, "decodeMessage | class:MON | type:VER");
 		versionCallback();
 	}
 
-
 #ifdef CONFIG_GPS_DEBUG
-	Parse the payload
+	// Parse the payload switch (currMsgClass)
 	switch (currMsgClass) {
-	case CLASS_ACK:
-		switch (currMsgID) {
-		case ACK_ACK:
-			got_ack_ = true;
-			ESP_LOGI(TAG, "decodeMessage | class:ACK | type:ACK");
+		case CLASS_ACK:
+			switch (currMsgID) {
+			case ACK_ACK:
+				got_ack_ = true;
+				ESP_LOGI(TAG, "decodeMessage | class:ACK | type:ACK");
+				break;
+			case ACK_NACK:
+				got_nack_ = true;
+				ESP_LOGI(TAG, "decodeMessage | class:ACK | type:NACK");
+				break;
+			default:
+				ESP_LOGI(TAG, "decodeMessage | class:ACK | type:%d", currMsgID);
+				break;
+			}
 			break;
-		case ACK_NACK:
-			got_nack_ = true;
-			ESP_LOGI(TAG, "decodeMessage | class:ACK | type:NACK");
+		case CLASS_MON:
+			switch (currMsgID) {
+			case MON_VER:
+				ESP_LOGI(TAG, "decodeMessage | class:MON | type:VER");
+				break;
+			case MON_COMMS:
+				ESP_LOGI(TAG, "decodeMessage | class:MON | type:COMMS");
+				break;
+			case MON_TXBUF:
+				ESP_LOGI(TAG, "decodeMessage | class:MON | type:TXMON_TXBUF");
+				break;
+			}
 			break;
-		default:
-			ESP_LOGI(TAG, "decodeMessage | class:ACK | type:%d", currMsgID);
+		case CLASS_RXM:
+			switch (currMsgID) {
+			case RXM_RAWX:
+				ESP_LOGI(TAG, "decodeMessage | class:RXM | type:RAWX");
+				break;
+			case RXM_SFRBX:
+				ESP_LOGI(TAG, "decodeMessage | class:RXM | type:SFRBX");
+				break;
+			}
 			break;
-		}
-		break;
-	case CLASS_MON:
-		switch (currMsgID) {
-		case MON_VER:
-			ESP_LOGI(TAG, "decodeMessage | class:MON | type:VER");
+		case CLASS_NAV:
+			switch (currMsgID) {
+			case NAV_PVT:
+				ESP_LOGI(TAG, "decodeMessage | class:NAV | type:PVT");
+				break;
+			case NAV_RELPOSNED:
+				ESP_LOGI(TAG, "decodeMessage | class:NAV | type:RELPOSNED");
+				break;
+			case NAV_POSECEF:
+				ESP_LOGI(TAG, "decodeMessage | class:NAV | type:POSECEF");
+				break;
+			case NAV_VELECEF:
+				ESP_LOGI(TAG, "decodeMessage | class:NAV | type:VELECEF");
+				break;
+			default:
+				ESP_LOGI(TAG, "decodeMessage | class:NAV | type:%d", currMsgID);
+			}
 			break;
-		case MON_COMMS:
-			ESP_LOGI(TAG, "decodeMessage | class:MON | type:COMMS");
+		case CLASS_CFG: // only needed for getting data
+			ESP_LOGI(TAG, "CFG_");
+			switch (currMsgID) {
+			case CFG_VALGET: {
+				ESP_LOGI(TAG, "decodeMessage | class:CFG | type:VALGET=%lld", incomingMessage.CFG_VALGET.cfgData);
+				break;
+			}
+			default:
+				ESP_LOGI(TAG, "decodeMessage | class:CFG | type:%x", currMsgID);
+			}
 			break;
-		case MON_TXBUF:
-			ESP_LOGI(TAG, "decodeMessage | class:MON | type:TXMON_TXBUF");
-			break;
-		}
-		break;
-	case CLASS_RXM:
-		switch (currMsgID) {
-		case RXM_RAWX:
-			ESP_LOGI(TAG, "decodeMessage | class:RXM | type:RAWX");
-			break;
-		case RXM_SFRBX:
-			ESP_LOGI(TAG, "decodeMessage | class:RXM | type:SFRBX");
-			break;
-		}
-		break;
-	case CLASS_NAV:
-		switch (currMsgID) {
-		case NAV_PVT:
-			ESP_LOGI(TAG, "decodeMessage | class:NAV | type:PVT");
-			break;
-		case NAV_RELPOSNED:
-			ESP_LOGI(TAG, "decodeMessage | class:NAV | type:RELPOSNED");
-			break;
-		case NAV_POSECEF:
-			ESP_LOGI(TAG, "decodeMessage | class:NAV | type:POSECEF");
-			break;
-		case NAV_VELECEF:
-			ESP_LOGI(TAG, "decodeMessage | class:NAV | type:VELECEF");
-			break;
-		default:
-			ESP_LOGI(TAG, "decodeMessage | class:NAV | type:%d", currMsgID);
-		}
-		break;
-	case CLASS_CFG: // only needed for getting data
-		ESP_LOGI(TAG, "CFG_");
-		switch (currMsgID) {
-		case CFG_VALGET: {
-			ESP_LOGI(TAG, "decodeMessage | class:CFG | type:VALGET=%lld", incomingMessage.CFG_VALGET.cfgData);
-			break;
-		}
-		default:
-			ESP_LOGI(TAG, "decodeMessage | class:CFG | type:%x", currMsgID);
-		}
-		break;
 
-	case CLASS_ESF:
-		switch (currMsgID) {
-		case ESF_ALG:
-			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:ALG");
-			break;
-		case ESF_CAL:
-			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:CAL");
-			break;
-		case ESF_INS:
-			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:INS");
-			break;
-		case ESF_STATUS:
-			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:STATUS");
-			break;
-		case ESF_RAW:
-			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:RAW");
-			break;
-		case ESF_MEAS:
-			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:MEAS");
+		case CLASS_ESF:
+			switch (currMsgID) {
+			case ESF_ALG:
+				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:ALG");
+				break;
+			case ESF_CAL:
+				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:CAL");
+				break;
+			case ESF_INS:
+				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:INS");
+				break;
+			case ESF_STATUS:
+				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:STATUS");
+				break;
+			case ESF_RAW:
+				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:RAW");
+				break;
+			case ESF_MEAS:
+				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:MEAS");
+				break;
+			default:
+				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:%d", currMsgID);
+				break;
+			}
 			break;
 		default:
-			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:%d", currMsgID);
+			ESP_LOGE(TAG, "Unknown (%02X-%02X)", currMsgClass, currMsgID);
 			break;
-		}
-		break;
-	default:
-		ESP_LOGE(TAG, "Unknown (%02X-%02X)", currMsgClass, currMsgID);
-		break;
 	}
 #endif /* CONFIG_GPS_DEBUG */
 
@@ -539,11 +539,11 @@ void UbloxGPS::configure(uint8_t version,
 	out_message_.CFG_VALSET.layer = layer;
 	if (size == 1) {
 		out_message_.CFG_VALSET.cfgData.bytes[0] = cfgData;
-		ESP_LOGI(TAG, "configure | cfgDataKey: %ld, cfgData: %d", cfgDataKey, out_message_.CFG_VALSET.cfgData.bytes[0]);
+		// ESP_LOGI(TAG, "configure | cfgDataKey: %ld, cfgData: %d", cfgDataKey, out_message_.CFG_VALSET.cfgData.bytes[0]);
 	}
 	if (size == 2) {
 		out_message_.CFG_VALSET.cfgData.word = cfgData;
-		ESP_LOGI(TAG, "configure | cfgDataKey: %ld, cfgData: %ld", cfgDataKey, out_message_.CFG_VALSET.cfgData.word);
+		// ESP_LOGI(TAG, "configure | cfgDataKey: %ld, cfgData: %ld", cfgDataKey, out_message_.CFG_VALSET.cfgData.word);
 	}
 	out_message_.CFG_VALSET.cfgDataKey = cfgDataKey;
 	sendMessage(CLASS_CFG, CFG_VALSET, out_message_, sizeof(CFG_VALSET_t));
@@ -620,6 +620,56 @@ void UbloxGPS::extractModuleName(const char* str)
 	}
 }
 
+void UbloxGPS::interpretBufferAsMEAS()
+{
+	uint8_t bufferBackup[currMsgLength - 8];
+	memcpy(bufferBackup, reinterpret_cast<const uint8_t*>(&incomingMessage.buffer) + 8, currMsgLength);
+	ublox::ESF_MEAS_PARSED_t* esfMeas = &incomingMessage.ESF_MEAS_PARSED;
+
+	// first 8 bytes are fine as they are
+	uint8_t sensorNum = (incomingMessage.buffer[5] >> 3);
+	esfMeas->accX = NAN;
+	esfMeas->accY = NAN;
+	esfMeas->accZ = NAN;
+	esfMeas->gyroX = NAN;
+	esfMeas->gyroY = NAN;
+	esfMeas->gyroZ = NAN;
+	esfMeas->pitch = NAN;
+	esfMeas->roll = NAN;
+	for (size_t i = 0; i < sensorNum; i++) {
+		uint8_t dataType = bufferBackup[(i << 2) + 3];
+		uint32_t dataLE = bufferBackup[(i << 2) + 0] + (bufferBackup[(i << 2) + 1] << 8) + (bufferBackup[(i << 2) + 2] << 16);
+		int32_t dataInt = (dataLE & 0x800000) ? (dataLE | 0xFF000000) : dataLE;
+		switch (dataType) {
+		case 0x0C: // Temperature of Gyroscope
+			esfMeas->gyroTemp = dataInt;
+			break;
+		case 0x10: // X acceleration
+			esfMeas->accX = dataInt * 0.0009765625;
+			break;
+		case 0x11: // Y Acceleration
+			esfMeas->accY = dataInt * 0.0009765625;
+			break;
+		case 0x12: // Z Acceleration
+			esfMeas->accZ = dataInt * 0.0009765625;
+			break;
+		case 0x0E: // X Angular Rate
+			esfMeas->gyroX = dataInt * 0.000244140625;
+			break;
+		case 0x0D: // Y Angular Rate
+			esfMeas->gyroY = dataInt * 0.000244140625;
+			break;
+		case 0x05: // Z Angular Rate
+			esfMeas->gyroZ = dataInt * 0.000244140625;
+			break;
+		}
+	}
+	if (isnan(esfMeas->accX) || isnan(esfMeas->accY) || isnan(esfMeas->accZ))
+		return;
+	esfMeas->pitch = atan2(esfMeas->accY, esfMeas->accZ) * 180.0 / M_PI;
+	esfMeas->roll = atan2(esfMeas->accX, sqrt(esfMeas->accY * esfMeas->accY + esfMeas->accZ * esfMeas->accZ)) * 180.0 / M_PI;
+}
+
 void UbloxGPS::uartEvent(void* pvParameters)
 {
 	UbloxGPS* gps = static_cast<UbloxGPS*>(pvParameters);
@@ -640,8 +690,8 @@ void UbloxGPS::uartEvent(void* pvParameters)
 	ESP_LOGI(TAG, "uartEvent | uartEvent started");
 	while (1) {
 		if (xQueueReceive(uart0_queue, (void*)&event, (TickType_t)portMAX_DELAY)) {
-			memset(dtmp, 0, SERIAL_BUFFER_SIZE);
 			if (event.type == UART_DATA) {
+				memset(dtmp, 0, SERIAL_BUFFER_SIZE);
 				uart_read_bytes(EX_UART_NUM, dtmp, event.size, portMAX_DELAY);
 				for (j = 0; j < event.size; j++)
 					gps->processNewByte(dtmp[j]);
@@ -667,10 +717,10 @@ void UbloxGPS::setupSerial()
 	};
 
 #if CONFIG_IDF_TARGET_ESP32C6
-	if(EX_UART_NUM == LP_UART_NUM_0) {
+	if (EX_UART_NUM == LP_UART_NUM_0) {
 		ESP_LOGI(TAG, "setupSerial | Using LP UART %d", EX_UART_NUM);
 		uart_config.rx_flow_ctrl_thresh = 0;
-		uart_config.source_clk = (uart_sclk_t) LP_UART_SCLK_LP_FAST; //
+		uart_config.source_clk = (uart_sclk_t)LP_UART_SCLK_LP_FAST; //
 	}
 #endif /* if CONFIG_IDF_TARGET_ESP32C6 */
 
@@ -687,7 +737,7 @@ void UbloxGPS::setupSerial()
 	// vTaskDelay(100 / portTICK_PERIOD_MS);
 
 	// Create a task to handler UART event from ISR
-	xTaskCreate(uartEvent, "uartEvent", 2048, this, 12, NULL);
+	xTaskCreate(uartEvent, "uartEvent", 2048, this, tskIDLE_PRIORITY, NULL);
 }
 
 } // namespace ublox

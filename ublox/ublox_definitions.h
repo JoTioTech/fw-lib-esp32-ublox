@@ -849,6 +849,24 @@ typedef struct
 	int32_t zAcc;							// 1e-2 mm/s^2 Z-axis acceleration
 } __attribute__((packed)) ESF_INS_t;
 
+
+typedef struct
+{
+	uint32_t time;            // Time provided by the sensor
+	uint16_t flags;           // Flags
+	uint16_t id;              // Identification number of the data
+	int32_t  gyroTemp;        // Temperature of the gyroscope in 0.01 degrees Celsius
+	float  accX;              // X-axis acceleration
+	float  accY;              // Y-axis acceleration
+	float  accZ;              // Z-axis acceleration
+	float  gyroX;             // X-axis angular rate
+	float  gyroY;             // Y-axis angular rate
+	float  gyroZ;             // Y-axis angular rate
+	float  pitch;             // Pitch angle in degrees
+	float  roll;              // Roll angle in degrees
+
+} __attribute__((packed)) ESF_MEAS_PARSED_t;
+
 typedef struct
 {
 	enum {
@@ -1083,6 +1101,7 @@ typedef union {
 	RXM_SFRBX_t RXM_SFRBX;
 	NAV_SVIN_t NAV_SVIN;
 	MON_TXBUF_t MON_TXBUF;
+	ESF_MEAS_PARSED_t ESF_MEAS_PARSED;
 	MON_VER_t MON_VER;
 	ESF_ALG_t ESF_ALG;
 	ESF_INS_t ESF_INS;

@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <string>
 #include <vector>
+#include <math.h>
 
 #define INPUT_REG_SIZE 128
 #define HOLDING_REG_SIZE 128
@@ -80,7 +81,7 @@ class UbloxGPS {
 	uint8_t layer;
 	uint32_t cfgDataKey;
 	uint64_t cfgData;
-	uint8_t size;
+	// uint8_t size;
 	// uint8_t byte = 1;
 	// uint8_t word = 2;
 	// local storage
@@ -325,6 +326,9 @@ class UbloxGPS {
 	 * @return module name
 	 */
 	const char* getModuleName() const { return module_name_; }
+
+
+	void interpretBufferAsMEAS();
 };
 
 } // namespace ublox
