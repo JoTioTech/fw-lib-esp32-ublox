@@ -269,29 +269,52 @@ bool UbloxGPS::requestDatabaseDump()
 	}
 }
 
-void UbloxGPS::uploadDatabaseDump(uint8_t* data, size_t len){
+void UbloxGPS::uploadDatabaseDump(uint8_t* data, size_t len)
+{
 	memset(&out_message_, 0, sizeof(MGA_DBD_t));
-	uint8_t size = len <= (ublox::BUFFER_SIZE-12) ? len : (ublox::BUFFER_SIZE-12);
+	uint8_t size = len <= (ublox::BUFFER_SIZE - 12) ? len : (ublox::BUFFER_SIZE - 12);
 	memcpy(out_message_.MGA_DBD.buffer, data, size);
 	sendMessage(CLASS_MGA, MGA_DBD, out_message_, size + 12);
 }
 
-void UbloxGPS::timeAssistance(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second, uint16_t miliseconds){
+void UbloxGPS::powerManagementRequest(uint32_t duration, uint32_t flags, uint32_t wakeUpSource)
+{
+
+	memset(&out_message_, 0, sizeof(RXM_PMREQ_t));
+	out_message_.RXM_PMREQ.version = 0x00;							// message version
+	out_message_.RXM_PMREQ.duration = duration;					// duration of requested task in ms, 0 for wakeup on pin
+	out_message_.RXM_PMREQ.flags = flags;								// Flags
+	out_message_.RXM_PMREQ.wakeupSource = wakeUpSource; // Wakeup source
+	sendMessage(CLASS_RXM, RXM_PMREQ, out_message_, sizeof(RXM_PMREQ_t));
+}
+
+bool UbloxGPS::configureWakeOnMotion(uint8_t mode, uint8_t threshold)
+{
+	if (major_version_ <= 23)
+		return false;
+	using CV = CFG_VALSET_t;
+	configure(CV::VERSION_0, CV::RAM, mode, CV::CFG_HW_SENS_WOM_MODE, 1);
+	configure(CV::VERSION_0, CV::RAM, threshold, CV::CFG_HW_SENS_WOM_THLD, 1);
+	return true;
+}
+
+void UbloxGPS::configureInitialTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second, uint16_t miliseconds)
+{
 	memset(&out_message_, 0, sizeof(MGA_INI_TIME_UTC_t));
-	out_message_.MGA_INI_TIME_UTC.type = 0x10; // message Type
-	out_message_.MGA_INI_TIME_UTC.version = 0x00; // message Version
-	out_message_.MGA_INI_TIME_UTC.reference = 0x00; // clock source configuration
-	out_message_.MGA_INI_TIME_UTC.leapSecs = 0x80; // leap seconds since 1980, keep 0x80 for unknown
-	out_message_.MGA_INI_TIME_UTC.year = year; // CE year
-	out_message_.MGA_INI_TIME_UTC.month = month; // month, 1-12
-	out_message_.MGA_INI_TIME_UTC.day = day; // day, 1-31
-	out_message_.MGA_INI_TIME_UTC.hour = hour; // hour, 0-23
-	out_message_.MGA_INI_TIME_UTC.minute = minute; // minute, 0-59
-	out_message_.MGA_INI_TIME_UTC.second = second; // second, 0-60 (60 for leap seconds)
+	out_message_.MGA_INI_TIME_UTC.type = 0x10;								// message Type
+	out_message_.MGA_INI_TIME_UTC.version = 0x00;							// message Version
+	out_message_.MGA_INI_TIME_UTC.reference = 0x00;						// clock source configuration
+	out_message_.MGA_INI_TIME_UTC.leapSecs = 0x80;						// leap seconds since 1980, keep 0x80 for unknown
+	out_message_.MGA_INI_TIME_UTC.year = year;								// CE year
+	out_message_.MGA_INI_TIME_UTC.month = month;							// month, 1-12
+	out_message_.MGA_INI_TIME_UTC.day = day;									// day, 1-31
+	out_message_.MGA_INI_TIME_UTC.hour = hour;								// hour, 0-23
+	out_message_.MGA_INI_TIME_UTC.minute = minute;						// minute, 0-59
+	out_message_.MGA_INI_TIME_UTC.second = second;						// second, 0-60 (60 for leap seconds)
 	out_message_.MGA_INI_TIME_UTC.ns = miliseconds * 1000000; // nanoseconds, 0-999,999,999
 
 	// TODO: pretty sure lower accuracy is better so we want actually high values here
-	out_message_.MGA_INI_TIME_UTC.tAccS = 59; // seconds part of time accuracy
+	out_message_.MGA_INI_TIME_UTC.tAccS = 59;						// seconds part of time accuracy
 	out_message_.MGA_INI_TIME_UTC.tAccNs = 999'000'000; // nanoseconds part of time accuracy
 	sendMessage(CLASS_MGA, MGA_INI_TIME_UTC, out_message_, sizeof(MGA_INI_TIME_UTC_t));
 }
@@ -490,10 +513,10 @@ bool UbloxGPS::decodeMessage()
 			break;
 		}
 		break;
-	case CLASS_UDP: {
+	case CLASS_UPD: {
 		switch (currMsgID) {
 		case UDP_SOS:
-			if(incomingMessage.buffer[0] == 0x02 && incomingMessage.buffer[4] == 0x01)
+			if (incomingMessage.buffer[0] == 0x02 && incomingMessage.buffer[4] == 0x01)
 				got_backup_ = true;
 			else if (incomingMessage.buffer[0] == 0x03)
 				ESP_LOGI(TAG, "decodeMessage | class:UDP | type:UDP_SOS | restoration, status=%d", incomingMessage.buffer[4]);
@@ -544,8 +567,8 @@ bool UbloxGPS::decodeMessage()
 		break;
 	case CLASS_MGA: {
 		switch (currMsgID) {
-			case MGA_DBD:
-				got_backup_ = true;
+		case MGA_DBD:
+			got_backup_ = true;
 			ESP_LOGI(TAG, "decodeMessage | class:MGA | type:MGA_DBD");
 			break;
 		}

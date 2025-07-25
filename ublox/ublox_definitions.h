@@ -37,6 +37,7 @@ typedef uint16_t U2;
 typedef uint32_t U4;
 typedef uint8_t X1;
 typedef uint16_t X2;
+typedef uint32_t X4;
 
 enum {
 	FIX_TYPE_NO_FIX = 0x00,
@@ -187,8 +188,9 @@ enum {
 };
 
 enum {
-	RXM_RAWX = 0x15, // Multi-GNSS Raw Measurement Data
-	RXM_SFRBX = 0x13 // Broadcast Navigation Data Subframe (ephemeris)
+	RXM_RAWX = 0x15,  // Multi-GNSS Raw Measurement Data
+	RXM_SFRBX = 0x13, // Broadcast Navigation Data Subframe (ephemeris)
+	RXM_PMREQ = 0x41, // Power management request
 };
 
 enum {
@@ -436,6 +438,11 @@ typedef struct
 	};
 
 	enum {
+		CFG_HW_SENS_WOM_MODE = 0x20a30063, // Hardware sensor wake on motion Mode
+		CFG_HW_SENS_WOM_THLD = 0x20a30064, // Hardware sensor wake on motion threshold
+	};
+
+	enum {
 		USB_INPROT_UBX = 0x10770001,		 // Flag to indicate if UBX should be an input protocol on USB
 		USB_INPROT_NMEA = 0x10770002,		 // Flag to indicate if NMEA should be an input on USB
 		USB_INPROT_RTCM3X = 0x10770004,	 // Flag to indicate if RTCM3X should be an input on USB
@@ -523,7 +530,7 @@ typedef struct {
 	uint8_t resetMode;
 	uint8_t reserved;
 
-} __atribute__((packed)) CFG_RST_t;
+} __attribute__((packed)) CFG_RST_t;
 
 typedef struct
 {
@@ -602,6 +609,11 @@ typedef struct
 		RTCM_1097USB = 0x2091031b,	 // CFG-MSGOUT-RTCM_3X_TYPE1097_USB __ Galileo MSM 7
 		RTCM_1127USB = 0x209102d9,	 // CFG-MSGOUT-RTCM_3X_TYPE1127_USB __ Beidou MSM 7
 																 //!!!!also use RTCM_1230USB above!!!///
+	};
+
+	enum {
+		CFG_HW_SENS_WOM_MODE = 0x20a30063, // Hardware sensor wake on motion Mode
+		CFG_HW_SENS_WOM_THLD = 0x20a30064, // Hardware sensor wake on motion threshold
 	};
 
 	enum {
@@ -967,7 +979,7 @@ typedef struct {
 	U1 hour;			// hour, 0-23
 	U1 minute;		// minute, 0-59
 	U1 second;		// second, 0-60 (60 for leap seconds)
-	X1 reserved;  // reserved
+	X1 reserved;	// reserved
 	U4 ns;				// nanoseconds, 0-999,999,999
 	U2 tAccS;			// seconds part of time accuracy
 	U2 reserved2; // reserved
@@ -1035,9 +1047,6 @@ typedef struct
 	};
 } __attribute__((packed)) RXM_RAWX_t;
 
-typedef struct {
-
-}
 
 enum {
 	GnssID_GPS = 0,
@@ -1135,6 +1144,28 @@ typedef struct
 	U4 dwrd[10];
 } __attribute__((packed)) RXM_SFRBX_t;
 
+typedef struct
+{
+
+	enum {
+		FLAG_FLAG_BACKUP = 0b00000010, // Go to backup Mode
+		FLAG_FLAG_FORCE = 0b00000100,	 // Force backup mode even with USB connected
+	};
+
+	enum {
+		FLAG_WAKE_UART = 0b00001000,		// Wake on UART signal
+		FLAG_WAKE_EXTINT0 = 0b00100000, // Wake on edge on EXTINT0 / wake on motion
+		FLAG_WAKE_EXTINT1 = 0b01000000, // Wake on edge on EXTINT1
+		FLAG_WAKE_SPI = 0b10000000,			// Wake on SPI
+	};
+
+	U1 version;			 // Message version (0x00 for this version)
+	U1 reserved1[3]; // Reserved
+	U4 duration;		 // duration of requested task in ms, 0 for wakeup on pin
+	X4 flags;				 // Flags
+	X4 wakeupSource; // Wakeup source
+} __attribute__((packed)) RXM_PMREQ_t;
+
 typedef union {
 	uint8_t buffer[ublox::BUFFER_SIZE];
 	ACK_ACK_t ACK_ACK;
@@ -1152,6 +1183,7 @@ typedef union {
 	NAV_RELPOSNED_t NAV_RELPOSNED;
 	RXM_RAWX_t RXM_RAWX;
 	RXM_SFRBX_t RXM_SFRBX;
+	RXM_PMREQ_t RXM_PMREQ;
 	NAV_SVIN_t NAV_SVIN;
 	MON_TXBUF_t MON_TXBUF;
 	ESF_MEAS_PARSED_t ESF_MEAS_PARSED;

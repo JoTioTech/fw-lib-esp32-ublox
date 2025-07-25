@@ -231,6 +231,47 @@ class UbloxGPS {
 	 */
 	bool requestBackup();
 
+
+	/**
+	 * @brief sent power management request to the module
+	 * used to put device to sleep
+   * page 39 of integration manual describes wake on motion
+	 * feature and which flags to use
+	 *
+   * @param duration duration of the sleep in milliseconds
+	 * @param flags flag to which power management request to use
+	 * @param wakeUpSource wake up source to use
+	 */
+	void powerManagementRequest(uint32_t duration, uint32_t flags, uint32_t wakeUpSource);
+
+
+	/**
+	 * @brief configure how wake on motion works
+	 * this function will not put the module to sleep
+	 *
+	 * @param mode - WoM mode
+	 *   0 - disabled
+	 *   1 - wake receiver, not host
+	 *   2 - wake host, not receiver
+	 *   3 - wake both host and receiver
+	 * @param threshold - WoM threshold (0 for 0g, 255 for 1 g)
+	 */
+	bool configureWakeOnMotion(uint8_t mode, uint8_t threshold);
+
+
+	/**
+	 * @brief set the time assistance for the module
+	 *
+	 * @param year year to set
+	 * @param month month to set
+	 * @param day day to set
+	 * @param hour hour to set
+	 * @param minute minute to set
+	 * @param second second to set
+	 * @param miliseconds milliseconds to set
+	 */
+	void configureInitialTime(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second, uint16_t miliseconds);
+
 	/**
 	 * @brief enable a message with the given class and id
 	 * uses exclusively old protocol (version <= 23)
