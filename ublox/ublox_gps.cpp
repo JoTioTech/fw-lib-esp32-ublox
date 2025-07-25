@@ -218,6 +218,84 @@ bool UbloxGPS::setMessageRate(uint8_t msgClass, uint8_t msgID, uint8_t rate)
 	return true;
 }
 
+bool UbloxGPS::resetDevice(uint16_t maskBRR, uint8_t resetMode)
+{
+	memset(&out_message_, 0, sizeof(CFG_RST_t));
+	out_message_.CFG_RST.maskBRR = maskBRR;
+	out_message_.CFG_RST.resetMode = resetMode;
+	sendMessage(CLASS_CFG, CFG_RST, out_message_, sizeof(CFG_RST_t));
+
+	return true;
+}
+
+bool UbloxGPS::requestBackup()
+{
+	got_backup_ = false;
+	memset(&out_message_, 0, 4);
+	sendMessage(CLASS_UPD, UDP_SOS, out_message_, 4);
+	auto start = (esp_timer_get_time() >> 10);
+	int dt_ms = 0;
+	while (!got_backup_ && dt_ms < TIMEOUT_MS) {
+		dt_ms = (esp_timer_get_time() >> 10) - start;
+		vTaskDelay(10 / portTICK_PERIOD_MS);
+	}
+
+	if (got_backup_) {
+		ESP_LOGI(TAG, "requestBackup | created backup");
+		return true;
+	} else {
+		ESP_LOGI(TAG, "requestBackup | failed to create backup");
+		return false;
+	}
+}
+
+bool UbloxGPS::requestDatabaseDump()
+{
+	got_backup_ = false;
+	sendMessage(CLASS_MGA, MGA_DBD, out_message_, 0);
+	auto start = (esp_timer_get_time() >> 10);
+	int dt_ms = 0;
+	while (!got_backup_ && dt_ms < TIMEOUT_MS) {
+		dt_ms = (esp_timer_get_time() >> 10) - start;
+		vTaskDelay(10 / portTICK_PERIOD_MS);
+	}
+
+	if (got_backup_) {
+		ESP_LOGI(TAG, "requestBackup | dumped database");
+		return true;
+	} else {
+		ESP_LOGI(TAG, "requestBackup | failed to dumped database");
+		return false;
+	}
+}
+
+void UbloxGPS::uploadDatabaseDump(uint8_t* data, size_t len){
+	memset(&out_message_, 0, sizeof(MGA_DBD_t));
+	uint8_t size = len <= (ublox::BUFFER_SIZE-12) ? len : (ublox::BUFFER_SIZE-12);
+	memcpy(out_message_.MGA_DBD.buffer, data, size);
+	sendMessage(CLASS_MGA, MGA_DBD, out_message_, size + 12);
+}
+
+void UbloxGPS::timeAssistance(uint16_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second, uint16_t miliseconds){
+	memset(&out_message_, 0, sizeof(MGA_INI_TIME_UTC_t));
+	out_message_.MGA_INI_TIME_UTC.type = 0x10; // message Type
+	out_message_.MGA_INI_TIME_UTC.version = 0x00; // message Version
+	out_message_.MGA_INI_TIME_UTC.reference = 0x00; // clock source configuration
+	out_message_.MGA_INI_TIME_UTC.leapSecs = 0x80; // leap seconds since 1980, keep 0x80 for unknown
+	out_message_.MGA_INI_TIME_UTC.year = year; // CE year
+	out_message_.MGA_INI_TIME_UTC.month = month; // month, 1-12
+	out_message_.MGA_INI_TIME_UTC.day = day; // day, 1-31
+	out_message_.MGA_INI_TIME_UTC.hour = hour; // hour, 0-23
+	out_message_.MGA_INI_TIME_UTC.minute = minute; // minute, 0-59
+	out_message_.MGA_INI_TIME_UTC.second = second; // second, 0-60 (60 for leap seconds)
+	out_message_.MGA_INI_TIME_UTC.ns = miliseconds * 1000000; // nanoseconds, 0-999,999,999
+
+	// TODO: pretty sure lower accuracy is better so we want actually high values here
+	out_message_.MGA_INI_TIME_UTC.tAccS = 59; // seconds part of time accuracy
+	out_message_.MGA_INI_TIME_UTC.tAccNs = 999'000'000; // nanoseconds part of time accuracy
+	sendMessage(CLASS_MGA, MGA_INI_TIME_UTC, out_message_, sizeof(MGA_INI_TIME_UTC_t));
+}
+
 bool UbloxGPS::toggleGNSS(uint32_t system, bool toggle)
 {
 	if (major_version_ <= 23)
@@ -234,7 +312,7 @@ bool UbloxGPS::toggleIMU(bool toggle)
 		return false;
 	// Enable IMU messages
 	using CV = CFG_VALSET_t;
-	ESP_LOGI(TAG, "Enabling IMU messages");
+	ESP_LOGI(TAG, "toggleIMU | enabling IMU messages");
 	configure(CV::VERSION_0, CV::RAM, 1, 0x1006001d, 1);
 	return true;
 }
@@ -397,102 +475,121 @@ bool UbloxGPS::decodeMessage()
 #ifdef CONFIG_GPS_DEBUG
 	// Parse the payload switch (currMsgClass)
 	switch (currMsgClass) {
-		case CLASS_ACK:
-			switch (currMsgID) {
-			case ACK_ACK:
-				got_ack_ = true;
-				ESP_LOGI(TAG, "decodeMessage | class:ACK | type:ACK");
-				break;
-			case ACK_NACK:
-				got_nack_ = true;
-				ESP_LOGI(TAG, "decodeMessage | class:ACK | type:NACK");
-				break;
-			default:
-				ESP_LOGI(TAG, "decodeMessage | class:ACK | type:%d", currMsgID);
-				break;
-			}
+	case CLASS_ACK:
+		switch (currMsgID) {
+		case ACK_ACK:
+			got_ack_ = true;
+			ESP_LOGI(TAG, "decodeMessage | class:ACK | type:ACK");
 			break;
-		case CLASS_MON:
-			switch (currMsgID) {
-			case MON_VER:
-				ESP_LOGI(TAG, "decodeMessage | class:MON | type:VER");
-				break;
-			case MON_COMMS:
-				ESP_LOGI(TAG, "decodeMessage | class:MON | type:COMMS");
-				break;
-			case MON_TXBUF:
-				ESP_LOGI(TAG, "decodeMessage | class:MON | type:TXMON_TXBUF");
-				break;
-			}
-			break;
-		case CLASS_RXM:
-			switch (currMsgID) {
-			case RXM_RAWX:
-				ESP_LOGI(TAG, "decodeMessage | class:RXM | type:RAWX");
-				break;
-			case RXM_SFRBX:
-				ESP_LOGI(TAG, "decodeMessage | class:RXM | type:SFRBX");
-				break;
-			}
-			break;
-		case CLASS_NAV:
-			switch (currMsgID) {
-			case NAV_PVT:
-				ESP_LOGI(TAG, "decodeMessage | class:NAV | type:PVT");
-				break;
-			case NAV_RELPOSNED:
-				ESP_LOGI(TAG, "decodeMessage | class:NAV | type:RELPOSNED");
-				break;
-			case NAV_POSECEF:
-				ESP_LOGI(TAG, "decodeMessage | class:NAV | type:POSECEF");
-				break;
-			case NAV_VELECEF:
-				ESP_LOGI(TAG, "decodeMessage | class:NAV | type:VELECEF");
-				break;
-			default:
-				ESP_LOGI(TAG, "decodeMessage | class:NAV | type:%d", currMsgID);
-			}
-			break;
-		case CLASS_CFG: // only needed for getting data
-			ESP_LOGI(TAG, "CFG_");
-			switch (currMsgID) {
-			case CFG_VALGET: {
-				ESP_LOGI(TAG, "decodeMessage | class:CFG | type:VALGET=%lld", incomingMessage.CFG_VALGET.cfgData);
-				break;
-			}
-			default:
-				ESP_LOGI(TAG, "decodeMessage | class:CFG | type:%x", currMsgID);
-			}
-			break;
-
-		case CLASS_ESF:
-			switch (currMsgID) {
-			case ESF_ALG:
-				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:ALG");
-				break;
-			case ESF_CAL:
-				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:CAL");
-				break;
-			case ESF_INS:
-				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:INS");
-				break;
-			case ESF_STATUS:
-				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:STATUS");
-				break;
-			case ESF_RAW:
-				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:RAW");
-				break;
-			case ESF_MEAS:
-				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:MEAS");
-				break;
-			default:
-				ESP_LOGI(TAG, "decodeMessage | class:ESF | type:%d", currMsgID);
-				break;
-			}
+		case ACK_NACK:
+			got_nack_ = true;
+			ESP_LOGI(TAG, "decodeMessage | class:ACK | type:NACK");
 			break;
 		default:
-			ESP_LOGE(TAG, "Unknown (%02X-%02X)", currMsgClass, currMsgID);
+			ESP_LOGI(TAG, "decodeMessage | class:ACK | type:%d", currMsgID);
 			break;
+		}
+		break;
+	case CLASS_UDP: {
+		switch (currMsgID) {
+		case UDP_SOS:
+			if(incomingMessage.buffer[0] == 0x02 && incomingMessage.buffer[4] == 0x01)
+				got_backup_ = true;
+			else if (incomingMessage.buffer[0] == 0x03)
+				ESP_LOGI(TAG, "decodeMessage | class:UDP | type:UDP_SOS | restoration, status=%d", incomingMessage.buffer[4]);
+			ESP_LOGI(TAG, "decodeMessage | class:UDP | type:UDP_SOS");
+			break;
+		}
+	} break;
+	case CLASS_MON:
+		switch (currMsgID) {
+		case MON_VER:
+			ESP_LOGI(TAG, "decodeMessage | class:MON | type:VER");
+			break;
+		case MON_COMMS:
+			ESP_LOGI(TAG, "decodeMessage | class:MON | type:COMMS");
+			break;
+		case MON_TXBUF:
+			ESP_LOGI(TAG, "decodeMessage | class:MON | type:TXMON_TXBUF");
+			break;
+		}
+		break;
+	case CLASS_RXM:
+		switch (currMsgID) {
+		case RXM_RAWX:
+			ESP_LOGI(TAG, "decodeMessage | class:RXM | type:RAWX");
+			break;
+		case RXM_SFRBX:
+			ESP_LOGI(TAG, "decodeMessage | class:RXM | type:SFRBX");
+			break;
+		}
+		break;
+	case CLASS_NAV:
+		switch (currMsgID) {
+		case NAV_PVT:
+			ESP_LOGI(TAG, "decodeMessage | class:NAV | type:PVT");
+			break;
+		case NAV_RELPOSNED:
+			ESP_LOGI(TAG, "decodeMessage | class:NAV | type:RELPOSNED");
+			break;
+		case NAV_POSECEF:
+			ESP_LOGI(TAG, "decodeMessage | class:NAV | type:POSECEF");
+			break;
+		case NAV_VELECEF:
+			ESP_LOGI(TAG, "decodeMessage | class:NAV | type:VELECEF");
+			break;
+		default:
+			ESP_LOGI(TAG, "decodeMessage | class:NAV | type:%d", currMsgID);
+		}
+		break;
+	case CLASS_MGA: {
+		switch (currMsgID) {
+			case MGA_DBD:
+				got_backup_ = true;
+			ESP_LOGI(TAG, "decodeMessage | class:MGA | type:MGA_DBD");
+			break;
+		}
+	} break;
+	case CLASS_CFG: // only needed for getting data
+		ESP_LOGI(TAG, "CFG_");
+		switch (currMsgID) {
+		case CFG_VALGET: {
+			ESP_LOGI(TAG, "decodeMessage | class:CFG | type:VALGET=%lld", incomingMessage.CFG_VALGET.cfgData);
+			break;
+		}
+		default:
+			ESP_LOGI(TAG, "decodeMessage | class:CFG | type:%x", currMsgID);
+		}
+		break;
+
+	case CLASS_ESF:
+		switch (currMsgID) {
+		case ESF_ALG:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:ALG");
+			break;
+		case ESF_CAL:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:CAL");
+			break;
+		case ESF_INS:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:INS");
+			break;
+		case ESF_STATUS:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:STATUS");
+			break;
+		case ESF_RAW:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:RAW");
+			break;
+		case ESF_MEAS:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:MEAS");
+			break;
+		default:
+			ESP_LOGI(TAG, "decodeMessage | class:ESF | type:%d", currMsgID);
+			break;
+		}
+		break;
+	default:
+		ESP_LOGE(TAG, "Unknown (%02X-%02X)", currMsgClass, currMsgID);
+		break;
 	}
 #endif /* CONFIG_GPS_DEBUG */
 

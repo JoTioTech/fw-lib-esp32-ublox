@@ -66,6 +66,7 @@ class UbloxGPS {
 	bool end_message_ = false;
 	bool got_ack_ = false;
 	bool got_ver_ = false;
+	bool got_backup_ = false;
 	bool got_nack_ = false;
 	parse_state_t parse_state_;
 	uint8_t currMsgClass;
@@ -207,6 +208,29 @@ class UbloxGPS {
 	 */
 	bool setDynamicMode(uint8_t dynamicMode);
 
+
+	/**
+	 * @brief request a reset of the module
+	 * uses exclusively old protocol (version <= 23)
+	 *
+	 * @param maskBRR bitmask of the BRR to reset
+	 *       0x0000 - Hot start (default)
+	 *       0x0001 - Warm start
+	 *       0xFFFF - Cold start
+	 * @param resetMode the reset mode to use (e.g. RESET_MODE_HOT, RESET_MODE_WARM, RESET_MODE_COLD)
+	 * @return true if the reset was requested successfully
+	 */
+	bool resetDevice(uint16_t maskBRR, uint8_t resetMode);
+
+	/**
+	 * @brief request a backup of the module
+	 * uses exclusively old protocol (version <= 23)
+	 * this function is blocking and will wait for a TIMEOUT_MS for a response
+	 *
+	 * @return true if the backup was requested successfully
+	 */
+	bool requestBackup();
+
 	/**
 	 * @brief enable a message with the given class and id
 	 * uses exclusively old protocol (version <= 23)
@@ -265,6 +289,24 @@ class UbloxGPS {
 	 * @return true if the version was successfully retrieved
 	 */
 	bool requestVersion();
+
+	/**
+	 * @brief request a database dump from the module
+	 * this function is blocking and will wait for a TIMEOUT_MS for a response
+	 *
+	 * @return true if the request was sent successfully
+	 */
+	bool requestDatabaseDump();
+
+	/**
+	 * @brief upload a database dump to the module
+	 * (reserved 12 bytes at the beginning are added automatically)
+	 *
+	 * @param data pointer to the data to upload
+	 * @param len length of the data to upload
+	 * @return true if the upload was successful
+	 */
+	void uploadDatabaseDump(uint8_t* data, size_t len);
 
 	/**
 	 * @brief blocks execution until message is received or timeout occurs

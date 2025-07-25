@@ -8,7 +8,11 @@ Everything is designed primarily from Ublox M9V module, however given that UBX p
 Basic parser structure has been forked from [UBLOX_read](https://github.com/superjax/UBLOX_read).
 
 ## Roadmap
-* [ ] functions that extract basic information easily
-* [ ] dead reckoning
+* [X] functions that extract basic information easily
+* [X] dead reckoning
 * [ ] geofencing
 * [X] gyro access
+
+
+# Hot start
+* Save-on-shutdown: page 58 of integration manual

@@ -26,7 +26,17 @@
 #include <stdint.h>
 
 namespace ublox {
-static constexpr size_t BUFFER_SIZE = 2048;
+static constexpr size_t BUFFER_SIZE = 1024;
+
+typedef float R4;
+typedef double R8;
+typedef int8_t I1;
+typedef int32_t I4;
+typedef uint8_t U1;
+typedef uint16_t U2;
+typedef uint32_t U4;
+typedef uint8_t X1;
+typedef uint16_t X2;
 
 enum {
 	FIX_TYPE_NO_FIX = 0x00,
@@ -179,6 +189,15 @@ enum {
 enum {
 	RXM_RAWX = 0x15, // Multi-GNSS Raw Measurement Data
 	RXM_SFRBX = 0x13 // Broadcast Navigation Data Subframe (ephemeris)
+};
+
+enum {
+	UDP_SOS = 0x14 // operations over external backup flash
+};
+
+enum {
+	MGA_DBD = 0x80,					// MGA databse dump message
+	MGA_INI_TIME_UTC = 0x40 // MGA Time assistance when hot booting from backup
 };
 
 typedef enum {
@@ -489,6 +508,22 @@ typedef struct
 	uint32_t cfgDataKey;
 	uint64_t cfgData;
 } __attribute__((packed)) CFG_VALGET_t;
+
+typedef struct {
+	enum {
+		RESET_HARDWARE = 0x00,			// Hardware reset (watchdog) immediate
+		RESET_SW = 0x01,						// Controlled software reset
+		RESET_SW_GNSS_ONLY = 0x02,	// Controlled software reset, GNSS only
+		RESET_HARDWARE_WAIT = 0x03, // Hardware reset (watchdog) after shutdown
+		RESET_GNSS_STOP = 0x08,			// Controlled GNSS stop
+		RESET_GNSS_START = 0x09,		// Controlled GNSS start
+	};
+
+	uint8_t maskBRR; // 0 poll request, 1 poll (receiver to return config data key and value pairs)
+	uint8_t resetMode;
+	uint8_t reserved;
+
+} __atribute__((packed)) CFG_RST_t;
 
 typedef struct
 {
@@ -849,21 +884,20 @@ typedef struct
 	int32_t zAcc;							// 1e-2 mm/s^2 Z-axis acceleration
 } __attribute__((packed)) ESF_INS_t;
 
-
 typedef struct
 {
-	uint32_t time;            // Time provided by the sensor
-	uint16_t flags;           // Flags
-	uint16_t id;              // Identification number of the data
-	int32_t  gyroTemp;        // Temperature of the gyroscope in 0.01 degrees Celsius
-	float  accX;              // X-axis acceleration
-	float  accY;              // Y-axis acceleration
-	float  accZ;              // Z-axis acceleration
-	float  gyroX;             // X-axis angular rate
-	float  gyroY;             // Y-axis angular rate
-	float  gyroZ;             // Y-axis angular rate
-	float  pitch;             // Pitch angle in degrees
-	float  roll;              // Roll angle in degrees
+	uint32_t time;		// Time provided by the sensor
+	uint16_t flags;		// Flags
+	uint16_t id;			// Identification number of the data
+	int32_t gyroTemp; // Temperature of the gyroscope in 0.01 degrees Celsius
+	float accX;				// X-axis acceleration
+	float accY;				// Y-axis acceleration
+	float accZ;				// Z-axis acceleration
+	float gyroX;			// X-axis angular rate
+	float gyroY;			// Y-axis angular rate
+	float gyroZ;			// Y-axis angular rate
+	float pitch;			// Pitch angle in degrees
+	float roll;				// Roll angle in degrees
 
 } __attribute__((packed)) ESF_MEAS_PARSED_t;
 
@@ -917,22 +951,36 @@ typedef struct
 	};
 } __attribute__((packed)) MON_COMMS_t;
 
+typedef struct {
+	uint8_t reserved[12]; // Reserved
+	uint8_t buffer[ublox::BUFFER_SIZE - 12];
+} __attribute__((packed)) MGA_DBD_t;
+
+typedef struct {
+	U1 type;			// msg type (fix to 0x10)
+	U1 version;		// msg version (fix to 0x00)
+	X1 reference; // clock source configuration
+	I1 leapSecs;	// leap seconds since 1980, keep 0x80 for unknown
+	U2 year;			// CE year
+	U1 month;			// month, 1-12
+	U1 day;				// day, 1-31
+	U1 hour;			// hour, 0-23
+	U1 minute;		// minute, 0-59
+	U1 second;		// second, 0-60 (60 for leap seconds)
+	X1 reserved;  // reserved
+	U4 ns;				// nanoseconds, 0-999,999,999
+	U2 tAccS;			// seconds part of time accuracy
+	U2 reserved2; // reserved
+	U4 tAccNs;		// nanoseconds part of time accuracy
+
+} __attribute__((packed)) MGA_INI_TIME_UTC_t;
+
 typedef struct
 {
 	char swVersion[30];			// Zero-terminated Software Version String.
 	char hwVersion[10];			// Zero-terminated Hardware Version String
 	char extension[30][10]; // Extended software information strings
 } __attribute__((packed)) MON_VER_t;
-
-typedef float R4;
-typedef double R8;
-typedef int8_t I1;
-typedef int32_t I4;
-typedef uint8_t U1;
-typedef uint16_t U2;
-typedef uint32_t U4;
-typedef uint8_t X1;
-typedef uint16_t X2;
 
 typedef struct
 {
@@ -986,6 +1034,10 @@ typedef struct
 		trkStat_prValid = 0b0001,
 	};
 } __attribute__((packed)) RXM_RAWX_t;
+
+typedef struct {
+
+}
 
 enum {
 	GnssID_GPS = 0,
@@ -1089,6 +1141,7 @@ typedef union {
 	ACK_NACK_t ACK_NACK;
 	CFG_MSG_t CFG_MSG;
 	CFG_PRT_t CFG_PRT;
+	CFG_RST_t CFG_RST;
 	CFG_RATE_t CFG_RATE;
 	CFG_NAV5_t CFG_NAV5;
 	CFG_VALSET_t CFG_VALSET;
@@ -1107,7 +1160,9 @@ typedef union {
 	ESF_INS_t ESF_INS;
 	ESF_STATUS_t ESF_STATUS;
 	MON_COMMS_t MON_COMM;
+	MGA_INI_TIME_UTC_t MGA_INI_TIME_UTC;
 	CFG_TMODE3_t CFG_TMODE3;
+	MGA_DBD_t MGA_DBD;
 } UBX_message_t;
 
 } // namespace ublox
